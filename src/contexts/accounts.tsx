@@ -45,7 +45,7 @@ export interface ParsedAccount<T> extends ParsedAccountBase {
 export const MintParser = (pubKey: PublicKey, info: AccountInfo<Buffer>) => {
   const buffer = Buffer.from(info.data);
 
-  const data = deserializeMint(buffer);
+  const data = deserializeMint(buffer, pubKey);
 
   const details = {
     pubkey: pubKey,
@@ -605,10 +605,12 @@ const deserializeAccount = (data: Buffer) => {
 };
 
 // TODO: expose in spl package
-const deserializeMint = (data: Buffer) => {
-  if (data.length !== MintLayout.span) {
-    throw new Error("Not a valid Mint");
-  }
+const deserializeMint = (data: Buffer, pubKey: PublicKey) => {
+  // console.log(data.length == MintLayout.span)
+  // if (data.length !== MintLayout.span) {
+  //   console.log(data, pubKey.toBase58())
+  //   throw new Error("Not a valid Mint");
+  // }
 
   const mintInfo = MintLayout.decode(data);
 

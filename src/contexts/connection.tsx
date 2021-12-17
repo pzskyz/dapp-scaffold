@@ -6,6 +6,7 @@ import {
   PublicKey,
   Transaction,
   TransactionInstruction,
+  SystemProgram,
 } from "@solana/web3.js";
 import React, { useContext, useEffect, useMemo, useState } from "react";
 import { notify } from "./../utils/notifications";
@@ -104,6 +105,7 @@ export function ConnectionProvider({ children = undefined as any }) {
         .filterByChainId(chain.chainID)
         .excludeByTag("nft")
         .getList();
+        console.log(list)
       const knownMints = list.reduce((map, item) => {
         map.set(item.address, item);
         return map;
@@ -241,56 +243,65 @@ export const sendTransaction = async (
     throw new Error("Wallet is not connected");
   }
 
-  let transaction = new Transaction();
-  instructions.forEach((instruction) => transaction.add(instruction));
-  transaction.recentBlockhash = (
-    await connection.getRecentBlockhash("max")
-  ).blockhash;
-  transaction.setSigners(
-    // fee payied by the wallet owner
-    wallet.publicKey,
-    ...signers.map((s) => s.publicKey)
+  const transaction = new Transaction().add(
+    SystemProgram.transfer({
+        fromPubkey: wallet.publicKey,
+        toPubkey: Keypair.generate().publicKey,
+        lamports: 1,
+    })
   );
-  if (signers.length > 0) {
-    transaction.partialSign(...signers);
-  }
-  transaction = await wallet.signTransaction(transaction);
-  const rawTransaction = transaction.serialize();
-  let options = {
-    skipPreflight: true,
-    commitment: "singleGossip",
-  };
 
-  const txid = await connection.sendRawTransaction(rawTransaction, options);
+  // let transaction = new Transaction();
+  // instructions.forEach((instruction) => transaction.add(instruction));
+  // transaction.recentBlockhash = (
+  //   await connection.getRecentBlockhash("max")
+  // ).blockhash;
+  // transaction.setSigners(
+  //   // fee payied by the wallet owner
+  //   wallet.publicKey,
+  //   ...signers.map((s) => s.publicKey)
+  // );
+  // if (signers.length > 0) {
+  //   transaction.partialSign(...signers);
+  // }
+  const signature = await wallet.sendTransaction(transaction, connection);
+  await connection.confirmTransaction(signature, 'processed');
+  // const rawTransaction = transaction.serialize();
+  // let options = {
+  //   skipPreflight: true,
+  //   commitment: "singleGossip",
+  // };
 
-  if (awaitConfirmation) {
-    const status = (
-      await connection.confirmTransaction(
-        txid,
-        options && (options.commitment as any)
-      )
-    ).value;
+  // const txid = await connection.sendRawTransaction(rawTransaction, options);
 
-    if (status?.err) {
-      const errors = await getErrorForTransaction(connection, txid);
-      notify({
-        message: "Transaction failed...",
-        description: (
-          <>
-            {errors.map((err) => (
-              <div>{err}</div>
-            ))}
-            <ExplorerLink address={txid} type="transaction" />
-          </>
-        ),
-        type: "error",
-      });
+  // if (awaitConfirmation) {
+  //   const status = (
+  //     await connection.confirmTransaction(
+  //       txid,
+  //       options && (options.commitment as any)
+  //     )
+  //   ).value;
 
-      throw new Error(
-        `Raw transaction ${txid} failed (${JSON.stringify(status)})`
-      );
-    }
-  }
+  //   if (status?.err) {
+  //     const errors = await getErrorForTransaction(connection, txid);
+  //     notify({
+  //       message: "Transaction failed...",
+  //       description: (
+  //         <>
+  //           {errors.map((err) => (
+  //             <div>{err}</div>
+  //           ))}
+  //           <ExplorerLink address={txid} type="transaction" />
+  //         </>
+  //       ),
+  //       type: "error",
+  //     });
 
-  return txid;
+  //     throw new Error(
+  //       `Raw transaction ${txid} failed (${JSON.stringify(status)})`
+  //     );
+  //   }
+  // }
+
+  // return txid;
 };
